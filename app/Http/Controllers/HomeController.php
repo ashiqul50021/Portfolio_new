@@ -43,7 +43,7 @@ class HomeController extends Controller
         $categories = Category::all();
         $reviewers = Review::orderBy('id', 'desc')->take(5)->get();
 
-        $portfolios= Portfolio::with('category')->orderBy('id', 'desc')->take(6)->get();
+        $portfolios= Portfolio::with('category', 'images')->orderBy('id', 'desc')->take(6)->get();
 
         $setting = Setting::first();
 

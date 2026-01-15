@@ -15,6 +15,7 @@ use App\Mail\ContactMail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Artisan;
 
 /*
 |--------------------------------------------------------------------------
@@ -47,4 +48,8 @@ Route::middleware(['auth','isAdmin'])->name('admin.')->prefix('/admin')->group(f
     Route::resource('/setting', SettingController::class);
 });
 
+Route::get('/run-migration', function () {
+    Artisan::call('migrate', ["--force" => true]);
+    return 'Migration Completed!';
+});
 Auth::routes();

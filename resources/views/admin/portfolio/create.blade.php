@@ -1,9 +1,6 @@
 @extends('admin.layouts.admin')
 
 @section('content')
-{{-- 
-<div class="main-panel">
-    <div class="content-wrapper"> --}}
 <div class="col-12 grid-margin stretch-card">
     <div class="card">
       <div class="card-body">
@@ -17,7 +14,6 @@
             </ul>
         </div>
          @endif
-        {{-- <p class="card-description"> Basic form elements </p> --}}
         <form class="forms-sample" method="POST" action="{{ route('admin.portfolio.store') }}" enctype="multipart/form-data">
           @csrf
             <div class="form-group">
@@ -39,15 +35,13 @@
                 </div>
               </div>
             </div>
-            <div class="form-group">
-              <label>File upload</label>
-              <input type="file" name="image" class="file-upload-default">
-              <div class="input-group col-xs-12">
-                <input type="text" class="form-control file-upload-info" disabled="" placeholder="Upload Image">
-                <span class="input-group-append">
-                  <button class="file-upload-browse btn btn-gradient-primary" type="button">Upload</button>
-                </span>
+            <div class="col-12">
+              <div class="form-group">
+                <label>Upload Images (Multiple)</label>
+                <input type="file" name="images[]" class="form-control" multiple accept="image/*" required>
+                <small class="text-muted">You can select multiple images. First image will be the primary/thumbnail.</small>
               </div>
+              <div id="image-preview" class="row mt-3"></div>
             </div>
             <div class="row">
               <div class="col-md-5">
@@ -67,7 +61,30 @@
       </div>
     </div>
   </div>
-{{-- </div>
-</div> --}}
 
 @endsection
+
+@push('scripts')
+<script>
+document.querySelector('input[name="images[]"]').addEventListener('change', function(e) {
+    const preview = document.getElementById('image-preview');
+    preview.innerHTML = '';
+
+    Array.from(e.target.files).forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const col = document.createElement('div');
+            col.className = 'col-md-3 mb-3';
+            col.innerHTML = `
+                <div class="position-relative">
+                    <img src="${event.target.result}" class="img-fluid rounded" style="height: 150px; width: 100%; object-fit: cover;">
+                    ${index === 0 ? '<span class="badge bg-primary position-absolute top-0 start-0 m-1">Primary</span>' : ''}
+                </div>
+            `;
+            preview.appendChild(col);
+        };
+        reader.readAsDataURL(file);
+    });
+});
+</script>
+@endpush

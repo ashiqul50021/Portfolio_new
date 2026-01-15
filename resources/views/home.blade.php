@@ -130,7 +130,8 @@
                 <h1 class="position-absolute text-uppercase text-primary">My Skills</h1>
             </div>
             <div class="row align-items-center">
-                @foreach($skills->split($skills->count()/3) as $row)
+                @if($skills->isNotEmpty())
+                @foreach($skills->chunk(ceil($skills->count()/2)) as $row)
                 <div class="col-md-6">
                     @foreach($row as $skill)
                     <div class="skill mb-4">
@@ -145,6 +146,11 @@
                     @endforeach
                 </div>
                 @endforeach
+                @else
+                <div class="col-12 text-center">
+                    <p class="text-muted">No skills added yet.</p>
+                </div>
+                @endif
             </div>
         </div>
     </div>
@@ -195,12 +201,22 @@
                 @foreach ($portfolios as $portfolio)
                 <div class="col-lg-4 col-md-6 mb-4 portfolio-item {{$portfolio->category->name }}">
                     <div class="position-relative overflow-hidden mb-2">
-                        <img class="img-fluid rounded w-100" src="{{ asset("storage/$portfolio->image") }}" alt="">
+                        <img class="img-fluid rounded w-100" src="{{ asset('storage/' . $portfolio->display_image) }}" alt="{{ $portfolio->title }}">
                         <div class="portfolio-btn bg-primary d-flex align-items-center justify-content-center">
-                            <a href="{{ asset("storage/$portfolio->image") }}" data-lightbox="portfolio">
-                                <i class="fa fa-plus text-white" style="font-size: 50px;"></i>
-                            </a>
-                            <a href="{{ $portfolio->project_url }}" data-lightbox="portfolio">
+                            @if($portfolio->images->count() > 0)
+                                @foreach($portfolio->images as $index => $image)
+                                <a href="{{ asset('storage/' . $image->image) }}" data-lightbox="portfolio-{{ $portfolio->id }}" data-title="{{ $portfolio->title }}" @if($index > 0) style="display:none;" @endif>
+                                    @if($index == 0)
+                                    <i class="fa fa-plus text-white" style="font-size: 50px;"></i>
+                                    @endif
+                                </a>
+                                @endforeach
+                            @else
+                                <a href="{{ asset('storage/' . $portfolio->image) }}" data-lightbox="portfolio-{{ $portfolio->id }}" data-title="{{ $portfolio->title }}">
+                                    <i class="fa fa-plus text-white" style="font-size: 50px;"></i>
+                                </a>
+                            @endif
+                            <a href="{{ $portfolio->project_url }}" target="_blank">
                                 <i class="fa-solid fa-link text-white" style="margin-left:20px; font-size: 50px;"></i>
                             </a>
                         </div>

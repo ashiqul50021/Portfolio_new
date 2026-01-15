@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Portfolio;
+use App\Models\PortfolioImage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -17,7 +18,7 @@ class PortfolioController extends Controller
      */
     public function index()
     {
-        $portfolios= Portfolio::with('category')->get();
+        $portfolios= Portfolio::with('category', 'images')->get();
         return view('admin.portfolio.index',compact('portfolios'));
     }
 
@@ -43,7 +44,8 @@ class PortfolioController extends Controller
         $validated = $request->validate([
             'title' => 'required|min:4',
             'project_url' => 'required',
-            'image' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+            'images' => 'required|array|min:1',
+            'images.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'cat_id' => 'required|exists:categories,id'
         ]);
 
@@ -51,13 +53,21 @@ class PortfolioController extends Controller
         $portfolio->title = $validated['title'];
         $portfolio->project_url = $validated['project_url'];
         $portfolio->cat_id = $request->cat_id;
+        $portfolio->save();
 
-        if($request->hasfile('image')){
-            $get_file = $request->file('image')->store('images/portfolios');
-            $portfolio->image = $get_file;
+        // Handle multiple image uploads
+        if($request->hasfile('images')){
+            foreach($request->file('images') as $index => $image){
+                $path = $image->store('images/portfolios', 'public');
+                PortfolioImage::create([
+                    'portfolio_id' => $portfolio->id,
+                    'image' => $path,
+                    'is_primary' => $index === 0, // first image is primary
+                    'sort_order' => $index
+                ]);
+            }
         }
 
-        $portfolio->save();
         return to_route('admin.portfolio.index')->with('message','Portfolio Added');
     }
 
@@ -71,6 +81,7 @@ class PortfolioController extends Controller
     public function edit(Portfolio $portfolio)
     {
         $categories = Category::all();
+        $portfolio->load('images');
         return view('admin.portfolio.edit', compact('portfolio','categories'));
     }
 
@@ -86,17 +97,42 @@ class PortfolioController extends Controller
         $validated = $request->validate([
             'title' => 'required|min:4',
             'project_url' => 'required',
-            'image' => 'image|mimes:jpeg,png,jpg|max:2048'
+            'images.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:2048'
         ]);
 
         $portfolio->title = $validated['title'];
         $portfolio->project_url = $validated['project_url'];
         $portfolio->cat_id = $request->cat_id;
 
-        if($request->hasfile('image')){
-            Storage::delete($portfolio->image);
-            $get_file = $request->file('image')->store('images/portfolios');
-            $portfolio->image = $get_file;
+        // Handle deleting selected images
+        if($request->has('delete_images')){
+            foreach($request->delete_images as $imageId){
+                $image = PortfolioImage::find($imageId);
+                if($image){
+                    Storage::disk('public')->delete($image->image);
+                    $image->delete();
+                }
+            }
+        }
+
+        // Handle setting primary image
+        if($request->has('primary_image')){
+            $portfolio->images()->update(['is_primary' => false]);
+            PortfolioImage::where('id', $request->primary_image)->update(['is_primary' => true]);
+        }
+
+        // Handle new image uploads
+        if($request->hasfile('images')){
+            $lastOrder = $portfolio->images()->max('sort_order') ?? -1;
+            foreach($request->file('images') as $index => $image){
+                $path = $image->store('images/portfolios', 'public');
+                PortfolioImage::create([
+                    'portfolio_id' => $portfolio->id,
+                    'image' => $path,
+                    'is_primary' => false,
+                    'sort_order' => $lastOrder + $index + 1
+                ]);
+            }
         }
 
         $portfolio->update();
@@ -111,10 +147,17 @@ class PortfolioController extends Controller
      */
     public function destroy(Portfolio $portfolio)
     {
-        if($portfolio->image != null){
-            Storage::delete($portfolio->image);
+        // Delete all related images from storage
+        foreach($portfolio->images as $image){
+            Storage::disk('public')->delete($image->image);
         }
-        $portfolio -> delete();
+
+        // Delete legacy image if exists
+        if($portfolio->image != null){
+            Storage::disk('public')->delete($portfolio->image);
+        }
+
+        $portfolio->delete();
         return back()->with('message', 'Portfolio Deleted');
     }
 
@@ -131,5 +174,15 @@ class PortfolioController extends Controller
     // Return the search view with the resluts compacted
     return view('admin.portfolio.search', compact('portfolios'));
 
+    }
+
+    /**
+     * Delete a single image via AJAX
+     */
+    public function deleteImage(PortfolioImage $image)
+    {
+        Storage::disk('public')->delete($image->image);
+        $image->delete();
+        return response()->json(['success' => true]);
     }
 }
